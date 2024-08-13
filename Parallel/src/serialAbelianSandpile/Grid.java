@@ -79,24 +79,55 @@ public class Grid {
 	
 	//key method to calculate the next update grod
 	boolean update() {
-		boolean change=false;
-		//do not update border
-		for( int i = 1; i<rows-1; i++ ) {
-			for( int j = 1; j<columns-1; j++ ) {
-				updateGrid[i][j] = (grid[i][j] % 4) + 
-						(grid[i-1][j] / 4) +
-						grid[i+1][j] / 4 +
-						grid[i][j-1] / 4 + 
-						grid[i][j+1] / 4;
-				if (grid[i][j]!=updateGrid[i][j]) {  
-					change=true;
-				}
-		}} //end nested for
-	if (change) { nextTimeStep();}
-	return change;
 	}
 	
+	private class UpdateTask extends RecursiveTask<Boolean> {
+		private static final int THRESHOLD = 100; // You can adjust this value
+		private int startRow, endRow, startCol, endCol;
 	
+		public UpdateTask(int startRow, int endRow, int startCol, int endCol) {
+			this.startRow = startRow;
+			this.endRow = endRow;
+			this.startCol = startCol;
+			this.endCol = endCol;
+		}
+	
+		@Override
+		protected Boolean compute() {
+			if ((endRow - startRow) * (endCol - startCol) <= THRESHOLD) {
+				return updatePart();
+			} else {
+				int midRow = (startRow + endRow) / 2;
+				int midCol = (startCol + endCol) / 2;
+	
+				UpdateTask topLeft = new UpdateTask(startRow, midRow, startCol, midCol);
+				UpdateTask topRight = new UpdateTask(startRow, midRow, midCol + 1, endCol);
+				UpdateTask bottomLeft = new UpdateTask(midRow + 1, endRow, startCol, midCol);
+				UpdateTask bottomRight = new UpdateTask(midRow + 1, endRow, midCol + 1, endCol);
+	
+				invokeAll(topLeft, topRight, bottomLeft, bottomRight);
+	
+				return topLeft.join() || topRight.join() || bottomLeft.join() || bottomRight.join();
+			}
+		}
+	
+		private Boolean updatePart() {
+			boolean change = false;
+			for (int i = startRow; i <= endRow; i++) {
+				for (int j = startCol; j <= endCol; j++) {
+					updateGrid[i][j] = (grid[i][j] % 4) + 
+									   (grid[i - 1][j] / 4) +
+									   grid[i + 1][j] / 4 +
+									   grid[i][j - 1] / 4 + 
+									   grid[i][j + 1] / 4;
+					if (grid[i][j] != updateGrid[i][j]) {
+						change = true;
+					}
+				}
+			}
+			return change;
+		}
+	}
 	
 	//display the grid in text format
 	void printGrid( ) {
