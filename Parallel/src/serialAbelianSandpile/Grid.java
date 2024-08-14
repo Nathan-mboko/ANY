@@ -1,4 +1,3 @@
-//Copyright M.M.Kuttel 2024 CSC2002S, UCT
 package serialAbelianSandpile;
 
 import java.awt.image.BufferedImage;
@@ -6,15 +5,16 @@ import java.io.File;
 import java.io.IOException;
 import javax.imageio.ImageIO;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.RecursiveTask;
-
+import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 //This class is for the grid for the Abelian Sandpile cellular automaton
 public class Grid {
 	private int rows, columns;
 	private int [][] grid; //grid 
 	private int [][] updateGrid;//grid for next time step
-    
+    private static final int THRESHOLD = 100;
+	private static final ForkJoinPool FORK_JOIN_POOL = new ForkJoinPool();
 	public Grid(int w, int h) {
 		rows = w+2; //for the "sink" border
 		columns = h+2; //for the "sink" border
@@ -82,63 +82,64 @@ public class Grid {
 	
 	//key method to calculate the next update grid
 	public boolean update() {
-        ForkJoinPool pool = new ForkJoinPool(Runtime.getRuntime().availableProcessors()/2);
-        UpdateTask mainTask = new UpdateTask(1, rows - 2, 1, columns - 2);
-        Boolean change = pool.invoke(mainTask);
-		
-        if (change) {
-            nextTimeStep();
+        AtomicBoolean changes = new AtomicBoolean(false);
+        UpdateTask task = new UpdateTask(1, rows - 1, 1, columns - 1, changes);
+        FORK_JOIN_POOL.invoke(task);
+
+        if (changes.get()) {
+            nextTimeStep(); // only update grid if there were changes
         }
-        return change;
+        return changes.get();
     }
 	//Added class to proccess the parallelism task
-	private class UpdateTask extends RecursiveTask<Boolean> {
-		private static final int THRESHOLD =3000; 
-		private int startRow, endRow, startCol, endCol;
-	
-		public UpdateTask(int startRow, int endRow, int startCol, int endCol) {
-			this.startRow = startRow;
-			this.endRow = endRow;
-			this.startCol = startCol;
-			this.endCol = endCol;
-		}
-	
-		@Override
-		protected Boolean compute() {
-			if ((endRow - startRow) * (endCol - startCol) <= THRESHOLD) {
-				return updatePart();
-			} else {
-				int midRow = (startRow + endRow) / 2;
-				int midCol = (startCol + endCol) / 2;
-	
-				UpdateTask topLeft = new UpdateTask(startRow, midRow, startCol, midCol);
-				UpdateTask topRight = new UpdateTask(startRow, midRow, midCol + 1, endCol);
-				UpdateTask bottomLeft = new UpdateTask(midRow + 1, endRow, startCol, midCol);
-				UpdateTask bottomRight = new UpdateTask(midRow + 1, endRow, midCol + 1, endCol);
-	
-				invokeAll(topLeft, topRight, bottomLeft, bottomRight);
-	
-				return topLeft.join() || topRight.join() || bottomLeft.join() || bottomRight.join();
-			}
-		}
-	
-		private Boolean updatePart() {
-			boolean change = false;
-			for (int i = startRow; i <= endRow; i++) {
-				for (int j = startCol; j <= endCol; j++) {
-					updateGrid[i][j] = (grid[i][j] % 4) + 
-									   (grid[i - 1][j] / 4) +
-									   grid[i + 1][j] / 4 +
-									   grid[i][j - 1] / 4 + 
-									   grid[i][j + 1] / 4;
-					if (grid[i][j] != updateGrid[i][j]) {
-						change = true;
-					}
-				}
-			}
-			return change;
-		}
-	}
+	private class UpdateTask extends RecursiveAction {
+        private final int startRow, endRow, startCol, endCol;
+        private final AtomicBoolean changes;
+
+        UpdateTask(int startRow, int endRow, int startCol, int endCol, AtomicBoolean changes) {
+            this.startRow = startRow;
+            this.endRow = endRow;
+            this.startCol = startCol;
+            this.endCol = endCol;
+            this.changes = changes;
+        }
+
+        @Override
+        protected void compute() {
+            if (endRow - startRow <= THRESHOLD && endCol - startCol <= THRESHOLD) {
+                computeDirectly();
+            } else {
+                int midRow = (startRow + endRow) / 2;
+                int midCol = (startCol + endCol) / 2;
+
+                invokeAll(
+                    new UpdateTask(startRow, midRow, startCol, midCol, changes),
+                    new UpdateTask(startRow, midRow, midCol, endCol, changes),
+                    new UpdateTask(midRow, endRow, startCol, midCol, changes),
+                    new UpdateTask(midRow, endRow, midCol, endCol, changes)
+                );
+            }
+        }
+
+        private void computeDirectly() {
+            boolean localChange = false;
+            for (int i = startRow; i < endRow; i++) {
+                for (int j = startCol; j < endCol; j++) {
+                    updateGrid[i][j] = (grid[i][j] % 4) +
+                            (grid[i - 1][j] / 4) +
+                            (grid[i + 1][j] / 4) +
+                            (grid[i][j - 1] / 4) +
+                            (grid[i][j + 1] / 4);
+                    if (grid[i][j] != updateGrid[i][j]) {
+                        localChange = true;
+                    }
+                }
+            }
+            if (localChange) {
+                changes.set(true);
+            }
+        }
+    }
 	
 	//display the grid in text format
 	void printGrid( ) {
