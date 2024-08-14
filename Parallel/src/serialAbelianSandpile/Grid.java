@@ -82,7 +82,7 @@ public class Grid {
 	
 	//key method to calculate the next update grid
 	public boolean update() {
-        ForkJoinPool pool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
+        ForkJoinPool pool = new ForkJoinPool(Runtime.getRuntime().availableProcessors()/2);
         UpdateTask mainTask = new UpdateTask(1, rows - 2, 1, columns - 2);
         Boolean change = pool.invoke(mainTask);
 		
@@ -93,7 +93,7 @@ public class Grid {
     }
 	//Added class to proccess the parallelism task
 	private class UpdateTask extends RecursiveTask<Boolean> {
-		private static final int THRESHOLD = 500; 
+		private static final int THRESHOLD =3000; 
 		private int startRow, endRow, startCol, endCol;
 	
 		public UpdateTask(int startRow, int endRow, int startCol, int endCol) {

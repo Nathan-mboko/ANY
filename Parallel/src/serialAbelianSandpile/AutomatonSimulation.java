@@ -3,13 +3,7 @@ package serialAbelianSandpile;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-/* Serial  program to simulate an Abelian Sandpile cellular automaton
- * This is the reference sequential version (Do not modify this code)
- * Michelle Kuttel 2024, University of Cape Town
- * Adapted from "Abelian Sandpile Simulation"
- * Peachy Parallel Assignments (EduPar 2022)" 
- * developed by Bu\:cker, Casanova and Da Silva  (∗Institute for Computer Science, Friedrich Schiller University Jena, Jena, Germany)
- */
+
 
 class AutomatonSimulation{
 	static final boolean DEBUG=false;//for debugging output, off
