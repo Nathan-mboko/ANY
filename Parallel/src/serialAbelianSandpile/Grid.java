@@ -13,7 +13,7 @@ public class Grid {
 	private int rows, columns;
 	private int [][] grid; //grid 
 	private int [][] updateGrid;//grid for next time step
-    private static final int THRESHOLD = 100;
+    private static final int THRESHOLD = 100;// sequential cutoff
 	private static final ForkJoinPool FORK_JOIN_POOL = new ForkJoinPool();
 	public Grid(int w, int h) {
 		rows = w+2; //for the "sink" border
@@ -80,7 +80,7 @@ public class Grid {
 		}
 	}
 	
-	//key method to calculate the next update grid
+	//key method to calculate the next update grid(parallel)
 	public boolean update() {
         AtomicBoolean changes = new AtomicBoolean(false);
         UpdateTask task = new UpdateTask(1, rows - 1, 1, columns - 1, changes);
@@ -91,7 +91,7 @@ public class Grid {
         }
         return changes.get();
     }
-	//Added class to proccess the parallelism task
+	//Proccess the parallelism task
 	private class UpdateTask extends RecursiveAction {
         private final int startRow, endRow, startCol, endCol;
         private final AtomicBoolean changes;
